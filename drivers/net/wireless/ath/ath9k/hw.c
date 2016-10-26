@@ -2034,7 +2034,12 @@ int ath9k_hw_reset(struct ath_hw *ah, struct ath9k_channel *chan,
 		ah->radar_conf.ext_channel = IS_CHAN_HT40(chan);
 		ath9k_hw_set_radar_params(ah);
 	}
+#ifdef DISABLE_CSMA
+	REG_SET_BIT(ah, AR_DIAG_SW, AR_DIAG_FORCE_CH_IDLE_HIGH);
+    REG_SET_BIT(ah, AR_DIAG_SW, AR_DIAG_IGNORE_VIRT_CS);
 
+	REG_SET_BIT(ah, AR_DIAG_SW, AR_DIAG_ACK_DIS);
+#endif
 	return 0;
 }
 EXPORT_SYMBOL(ath9k_hw_reset);

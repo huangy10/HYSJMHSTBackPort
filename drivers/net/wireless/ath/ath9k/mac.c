@@ -398,10 +398,17 @@ bool ath9k_hw_resettxqueue(struct ath_hw *ah, u32 q)
      *
      * 设置发送退避的关键属性
      */
+#ifdef DISABLE_CSMA
+	REG_WRITE(ah, AR_DLCL_IFS(q),
+		  SM(0, AR_D_LCL_IFS_CWMIN) |
+		  SM(0, AR_D_LCL_IFS_CWMAX) |
+		  SM(qi->tqi_aifs, AR_D_LCL_IFS_AIFS));
+#else
 	REG_WRITE(ah, AR_DLCL_IFS(q),
 		  SM(cwMin, AR_D_LCL_IFS_CWMIN) |
 		  SM(qi->tqi_cwmax, AR_D_LCL_IFS_CWMAX) |
 		  SM(qi->tqi_aifs, AR_D_LCL_IFS_AIFS));
+#endif
 
 	REG_WRITE(ah, AR_DRETRY_LIMIT(q),
 		  SM(INIT_SSH_RETRY, AR_D_RETRY_LIMIT_STA_SH) |
@@ -440,8 +447,11 @@ bool ath9k_hw_resettxqueue(struct ath_hw *ah, u32 q)
 		REG_SET_BIT(ah, AR_QMISC(q), AR_Q_MISC_RDYTIME_EXP_POLICY);
 
     // 禁用退避相关
+#ifdef DISABLE_CSMA
 	if (qi->tqi_qflags & TXQ_FLAG_BACKOFF_DISABLE)
 		REG_SET_BIT(ah, AR_DMISC(q), AR_D_MISC_POST_FR_BKOFF_DIS);
+#endif
+	REG_SET_BIT(ah, AR_DMISC(q), AR_D_MISC_POST_FR_BKOFF_DIS);
 
 	REGWRITE_BUFFER_FLUSH(ah);
 

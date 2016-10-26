@@ -253,6 +253,9 @@ void ieee80211_set_qos_hdr(struct ieee80211_sub_if_data *sdata,
 		ack_policy |= IEEE80211_QOS_CTL_ACK_POLICY_NOACK;
 		info->flags |= IEEE80211_TX_CTL_NO_ACK;
 	}
+#ifdef DISABLE_CSMA
+	info->flags |= IEEE80211_TX_CTL_NO_ACK;
+#endif
 
 	/* qos header is 2 bytes */
 	*p++ = ack_policy | tid;

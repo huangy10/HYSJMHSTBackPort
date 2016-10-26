@@ -1337,6 +1337,11 @@ static void ath9k_remove_interface(struct ieee80211_hw *hw,
 	mutex_unlock(&sc->mutex);
 }
 
+/*
+ * Woody Huang, 2016.10.25
+ *
+ * 启用Power Saving
+ */
 static void ath9k_enable_ps(struct ath_softc *sc)
 {
 	struct ath_hw *ah = sc->sc_ah;
@@ -1379,6 +1384,76 @@ static void ath9k_disable_ps(struct ath_softc *sc)
 	}
 	ath_dbg(common, PS, "PowerSave disabled\n");
 }
+
+#ifdef DISABLE_CSMA
+/*
+ * 在此处禁用PS
+ */
+static int ath9k_config(struct ieee80211_hw *hw, u32 changed)
+{
+struct ath_softc *sc = hw->priv;
+	struct ath_hw *ah = sc->sc_ah;
+	struct ath_common *common = ath9k_hw_common(ah);
+	struct ieee80211_conf *conf = &hw->conf;
+	struct ath_chanctx *ctx = sc->cur_chan;
+
+	ath9k_ps_wakeup(sc);
+	mutex_lock(&sc->mutex);
+
+	if (changed & IEEE80211_CONF_CHANGE_IDLE) {
+		sc->ps_idle = !!(conf->flags & IEEE80211_CONF_IDLE);
+		if (sc->ps_idle) {
+			ath_cancel_work(sc);
+			ath9k_stop_btcoex(sc);
+		} else {
+			ath9k_start_btcoex(sc);
+			/*
+			 * The chip needs a reset to properly wake up from
+			 * full sleep
+			 */
+			ath_chanctx_set_channel(sc, ctx, &ctx->chandef);
+		}
+	}
+
+	/*
+	 * We just prepare to enable PS. We have to wait until our AP has
+	 * ACK'd our null data frame to disable RX otherwise we'll ignore
+	 * those ACKs and end up retransmitting the same null data frames.
+	 * IEEE80211_CONF_CHANGE_PS is only passed by mac80211 for STA mode.
+	 */
+	if (changed & IEEE80211_CONF_CHANGE_PS) {
+		unsigned long flags;
+		spin_lock_irqsave(&sc->sc_pm_lock, flags);
+//		if (conf->flags & IEEE80211_CONF_PS)
+//			ath9k_enable_ps(sc);
+//		else
+//			ath9k_disable_ps(sc);
+        // 无论如何，始终是禁用
+        ath9k_disable_ps(sc);
+		spin_unlock_irqrestore(&sc->sc_pm_lock, flags);
+	}
+
+	if (changed & IEEE80211_CONF_CHANGE_MONITOR) {
+		if (conf->flags & IEEE80211_CONF_MONITOR) {
+			ath_dbg(common, CONFIG, "Monitor mode is enabled\n");
+			sc->sc_ah->is_monitoring = true;
+		} else {
+			ath_dbg(common, CONFIG, "Monitor mode is disabled\n");
+			sc->sc_ah->is_monitoring = false;
+		}
+	}
+
+	if (!ath9k_is_chanctx_enabled() && (changed & IEEE80211_CONF_CHANGE_CHANNEL)) {
+		ctx->offchannel = !!(conf->flags & IEEE80211_CONF_OFFCHANNEL);
+		ath_chanctx_set_channel(sc, ctx, &hw->conf.chandef);
+	}
+
+	mutex_unlock(&sc->mutex);
+	ath9k_ps_restore(sc);
+
+	return 0;
+}
+#else
 
 static int ath9k_config(struct ieee80211_hw *hw, u32 changed)
 {
@@ -1442,6 +1517,8 @@ static int ath9k_config(struct ieee80211_hw *hw, u32 changed)
 
 	return 0;
 }
+
+#endif
 
 #define SUPPORTED_FILTERS			\
 	(FIF_ALLMULTI |				\
@@ -2605,6 +2682,7 @@ static int ath9k_get_txpower(struct ieee80211_hw *hw, struct ieee80211_vif *vif,
 
 	return 0;
 }
+
 
 struct ieee80211_ops ath9k_ops = {
 	.tx 		    = ath9k_tx,
