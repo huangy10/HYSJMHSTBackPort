@@ -756,7 +756,11 @@ enum mac80211_rate_control_flags {
 #define IEEE80211_TX_INFO_RATE_DRIVER_DATA_SIZE 24
 
 /* maximum number of rate stages */
+#ifdef DISABLE_CSMA
+#define IEEE80211_TX_MAX_RATES	1
+#else
 #define IEEE80211_TX_MAX_RATES	4
+#endif
 
 /* maximum number of rate table entries */
 #define IEEE80211_TX_RATE_TABLE_SIZE	4

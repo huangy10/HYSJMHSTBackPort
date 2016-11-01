@@ -1220,11 +1220,19 @@ static void ath_buf_set_rate(struct ath_softc *sc, struct ath_buf *bf,
 
 		if (rts || rates[i].flags & IEEE80211_TX_RC_USE_RTS_CTS) {
 			info->rates[i].RateFlags |= ATH9K_RATESERIES_RTS_CTS;
+#ifndef DISABLE_CSMA
 			info->flags |= ATH9K_TXDESC_RTSENA;
+#endif
 		} else if (rates[i].flags & IEEE80211_TX_RC_USE_CTS_PROTECT) {
 			info->rates[i].RateFlags |= ATH9K_RATESERIES_RTS_CTS;
+#ifndef DISABLE_CSMA
 			info->flags |= ATH9K_TXDESC_CTSENA;
+#endif
 		}
+
+#ifdef DISABLE_CSMA
+        info->flags &= ~(ATH9K_TXDESC_RTSENA | ATH9K_TXDESC_CTSENA)
+#endif
 
 		if (rates[i].flags & IEEE80211_TX_RC_40_MHZ_WIDTH)
 			info->rates[i].RateFlags |= ATH9K_RATESERIES_2040;
