@@ -1141,6 +1141,11 @@ ieee80211_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
 	return stats;
 }
 
+/*
+ * Woody Huang, 2016.11.2
+ *
+ * 此处为mac层向device agnostic层注册handler的地方
+ */
 static const struct net_device_ops ieee80211_dataif_ops = {
 	.ndo_open		= ieee80211_open,
 	.ndo_stop		= ieee80211_stop,

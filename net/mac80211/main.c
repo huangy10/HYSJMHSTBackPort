@@ -478,6 +478,14 @@ static const struct ieee80211_vht_cap mac80211_vht_capa_mod_mask = {
 	},
 };
 
+/*
+ * Woody Huang, 2016.11.2
+ *
+ * 初始化时，由这个函数最终分配内存空间给hw
+ * 这里的的priv_data_len为ath_softc的大小
+ * ops为main.c下面定义
+ * requested_name为NULL
+ */
 struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
 					   const struct ieee80211_ops *ops,
 					   const char *requested_name)
@@ -487,6 +495,7 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
 	struct wiphy *wiphy;
 	bool use_chanctx;
 
+    // 显然是接口检查，保证ops定义了必备的接口
 	if (WARN_ON(!ops->tx || !ops->start || !ops->stop || !ops->config ||
 		    !ops->add_interface || !ops->remove_interface ||
 		    !ops->configure_filter))
@@ -499,6 +508,7 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
 	i = !!ops->add_chanctx + !!ops->remove_chanctx +
 	    !!ops->change_chanctx + !!ops->assign_vif_chanctx +
 	    !!ops->unassign_vif_chanctx;
+    // 要么全部定义，要么不定义
 	if (WARN_ON(i != 0 && i != 5))
 		return NULL;
 	use_chanctx = i == 5;
@@ -520,13 +530,20 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
 	 */
 	priv_size = ALIGN(sizeof(*local), NETDEV_ALIGN) + priv_data_len;
 
+    /*
+     * 为wiphy分配内存，wiphy为描述每个device的数据结构，每个wiphy可以关联0个，1个或者多个virtual interfaces,
+     * 这里的mac80211_config_ops是为cfg80211定义的
+     */
 	wiphy = wiphy_new_nm(&mac80211_config_ops, priv_size, requested_name);
 
 	if (!wiphy)
 		return NULL;
 
+    // manage frame的子类型，全局变量定义，I hate globla variables
 	wiphy->mgmt_stypes = ieee80211_default_mgmt_stypes;
 
+    // a pointer that drivers can use to identify if an arbitrary wiphy is theirs, e.g. in global notifiers
+    // -- Woody Huang
 	wiphy->privid = mac80211_wiphy_privid;
 
 	wiphy->flags |= WIPHY_FLAG_NETNS_OK |
@@ -561,7 +578,7 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
 		goto err_free;
 
 	local->hw.wiphy = wiphy;
-
+    // 注意这里，local的hw.priv的地址是local自己的地址往后移动自己的长度，正好指向了 driver's private data
 	local->hw.priv = (char *)local + ALIGN(sizeof(*local), NETDEV_ALIGN);
 
 	local->ops = ops;
@@ -598,6 +615,7 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
 
 	__hw_addr_init(&local->mc_list);
 
+    // mutex是一种同步锁
 	mutex_init(&local->iflist_mtx);
 	mutex_init(&local->mtx);
 
@@ -630,9 +648,12 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
 		  ieee80211_sched_scan_stopped_work);
 
 	spin_lock_init(&local->ack_status_lock);
+    // http://blog.csdn.net/ganggexiongqi/article/details/6737389
+    // idr机制是一种将整数ID号和特定指针关联在一起的机制
 	idr_init(&local->ack_status_frames);
 
 	for (i = 0; i < IEEE80211_MAX_QUEUES; i++) {
+        // 貌似local中维护了一组pending的skb的队列，而下面的atomic_set应该是为每个队列做了一个关于stop操作的原子操作定义
 		skb_queue_head_init(&local->pending[i]);
 		atomic_set(&local->agg_queue_stop[i], 0);
 	}

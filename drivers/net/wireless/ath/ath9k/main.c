@@ -483,6 +483,12 @@ out:
 	ath9k_ps_restore(sc);
 }
 
+/*
+ * Woody Huang, 2016.11.2
+ *
+ * 中断入口
+ */
+
 irqreturn_t ath_isr(int irq, void *dev)
 {
 #define SCHED_INTR (				\
@@ -742,6 +748,15 @@ static int ath9k_start(struct ieee80211_hw *hw)
 	return 0;
 }
 
+/*
+ * Woody Huang, 2016.11.3
+ *
+ * 发送流程由mac80211调用进入ath9k的入口
+ *
+ * ieee82011_tx_control 只有一个成员struct ieee80211_sta *sta
+ *
+ * ieee82011_sta: station table entry, which represents a station we are possibly communcating with.
+ */
 static void ath9k_tx(struct ieee80211_hw *hw,
 		     struct ieee80211_tx_control *control,
 		     struct sk_buff *skb)
@@ -756,6 +771,10 @@ static void ath9k_tx(struct ieee80211_hw *hw,
 		/*
 		 * mac80211 does not set PM field for normal data frames, so we
 		 * need to update that based on the current PS mode.
+		 *
+		 * Woody Huang
+		 *
+		 * PM = Power Management, FC的B12位
 		 */
 		if (ieee80211_is_data(hdr->frame_control) &&
 		    !ieee80211_is_nullfunc(hdr->frame_control) &&
@@ -796,6 +815,10 @@ static void ath9k_tx(struct ieee80211_hw *hw,
 	/*
 	 * Cannot tx while the hardware is in full sleep, it first needs a full
 	 * chip reset to recover from that
+	 *
+	 * Woody Huang,
+	 *
+	 * 注意到此时并没有发送，也没有放入队列，而是直接抛弃了
 	 */
 	if (unlikely(sc->sc_ah->power_mode == ATH9K_PM_FULL_SLEEP)) {
 		ath_err(common, "TX while HW is in FULL_SLEEP mode\n");
@@ -803,11 +826,18 @@ static void ath9k_tx(struct ieee80211_hw *hw,
 	}
 
 	memset(&txctl, 0, sizeof(struct ath_tx_control));
+    /*
+     * Woody Huang,
+     *
+     * 所处的发送队列txq
+     * 以及目标sta
+     */
 	txctl.txq = sc->tx.txq_map[skb_get_queue_mapping(skb)];
 	txctl.sta = control->sta;
 
 	ath_dbg(common, XMIT, "transmitting packet, skb: %p\n", skb);
 
+    // Next Step. Woody Huang, 2016.11.2
 	if (ath_tx_start(hw, skb, &txctl) != 0) {
 		ath_dbg(common, XMIT, "TX failed\n");
 		TX_STAT_INC(txctl.txq->axq_qnum, txfailed);
@@ -1257,6 +1287,12 @@ static int ath9k_add_interface(struct ieee80211_hw *hw,
 
 	ath9k_calculate_summary_state(sc, avp->chanctx);
 
+	/*
+	 * Woody Huang, 2016.11.2
+	 *
+	 * As mentioned in the mac80211.h header file, the driver is expected to initialize its private per-queue
+	 * data for stations and interface in the .add_interface and .sta_add ops
+	 */
 	ath9k_assign_hw_queues(hw, vif);
 
 	ath9k_set_txpower(sc, vif);

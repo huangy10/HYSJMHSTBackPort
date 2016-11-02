@@ -2252,6 +2252,9 @@ static struct ath_buf *ath_tx_setup_buffer(struct ath_softc *sc,
 	return bf;
 }
 
+/*
+ * 设置header中Sequence Control这一段的值
+ */
 void ath_assign_seq(struct ath_common *common, struct sk_buff *skb)
 {
 	struct ieee80211_hdr *hdr = (struct ieee80211_hdr *) skb->data;
@@ -2291,6 +2294,11 @@ static int ath_tx_prepare(struct ieee80211_hw *hw, struct sk_buff *skb,
 		txctl->an = (struct ath_node *)sta->drv_priv;
 	else if (vif && ieee80211_is_data(hdr->frame_control)) {
 		avp = (void *)vif->drv_priv;
+        /*
+         * Woody Huang, 2016.11.2
+         *
+         * 根据这里推测，当sta为空时，应当为广播方式
+         */
 		txctl->an = &avp->mcast_node;
 	}
 
@@ -2306,6 +2314,11 @@ static int ath_tx_prepare(struct ieee80211_hw *hw, struct sk_buff *skb,
 
 	/* Add the padding after the header if this is not already done */
 	padpos = ieee80211_hdrlen(hdr->frame_control);
+    /*
+     * Woody Huang, 2016.11.2
+     *
+     * 对齐
+     */
 	padsize = padpos & 3;
 	if (padsize && skb->len > padpos) {
 		if (skb_headroom(skb) < padsize)
@@ -2319,7 +2332,11 @@ static int ath_tx_prepare(struct ieee80211_hw *hw, struct sk_buff *skb,
 	return 0;
 }
 
-
+/*
+ * Woody Huang, 2016.11.2
+ *
+ * ath9k_tx最后调用了这个函数来进行发送
+ */
 /* Upon failure caller should free skb */
 int ath_tx_start(struct ieee80211_hw *hw, struct sk_buff *skb,
 		 struct ath_tx_control *txctl)
@@ -2340,9 +2357,22 @@ int ath_tx_start(struct ieee80211_hw *hw, struct sk_buff *skb,
 	if (vif)
 		avp = (void *)vif->drv_priv;
 
+	/*
+	 * Woody Huang, 2016.11.2
+	 *
+	 * IEEE80211_TX_CTL_TX_OFFCHAN: mark this packet to be transmitted on the off-channel channel when a remain-on-
+	 * channel offload is done in hardware, normal packets still flow and are expected to be handled properly by
+	 * the device
+	 */
 	if (info->flags & IEEE80211_TX_CTL_TX_OFFCHAN)
 		txctl->force_channel = true;
 
+	/*
+	 * Woody Huang,
+	 *
+	 * IEEE80211_TX_CTRL_PS_RESPONSE: this frame is a response to a poll frame (PS-Poll or uAPSD)
+	 *
+	 */
 	ps_resp = !!(info->control.flags & IEEE80211_TX_CTRL_PS_RESPONSE);
 
 	ret = ath_tx_prepare(hw, skb, txctl);
@@ -2375,12 +2405,22 @@ int ath_tx_start(struct ieee80211_hw *hw, struct sk_buff *skb,
 	/* Force queueing of all frames that belong to a virtual interface on
 	 * a different channel context, to ensure that they are sent on the
 	 * correct channel.
+	 *
+	 * Woody Huang: 2016
+	 *
+	 * 猜测：有一个帧需要放进不同的队列里面，如下面的ps response
 	 */
 	if (((avp && avp->chanctx != sc->cur_chan) ||
 	     sc->cur_chan->stopped) && !txctl->force_channel) {
 		if (!txctl->an)
 			txctl->an = &avp->mcast_node;
 		queue = true;
+        /*
+         * Woody Huang, 2016.11.2
+         *
+         * UAPSD is an acronym for Unscheduled Automatic Power Save Delivery,
+         * a feature of Wi-Fi devices that allows them to save power.
+         */
 		skip_uapsd = true;
 	}
 
@@ -2388,6 +2428,9 @@ int ath_tx_start(struct ieee80211_hw *hw, struct sk_buff *skb,
 		tid = ath_get_skb_tid(sc, txctl->an, skb);
 
 	if (!skip_uapsd && ps_resp) {
+        /*
+         * 切换了队列，将原队列解锁，并将新队列上锁
+         */
 		ath_txq_unlock(sc, txq);
 		txq = sc->tx.uapsdq;
 		ath_txq_lock(sc, txq);

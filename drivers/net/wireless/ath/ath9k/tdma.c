@@ -9,3 +9,7 @@
 
 #include "tdma.h"
 
+static void tdma_config() {
+
+}
+

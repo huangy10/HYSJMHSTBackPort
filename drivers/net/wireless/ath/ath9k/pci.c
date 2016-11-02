@@ -873,6 +873,12 @@ static const struct ath_bus_ops ath_pci_bus_ops = {
 	.aspm_init = ath_pci_aspm_init,
 };
 
+/*
+ * Woody Huang, 2016.11.2
+ *
+ * 咱们是PCI总线，模块加载时应是走这边，望文生义来看，这个函数应当在探测到PCI接口的主板时调用，
+ * 这里传输的参数，第一个应当是pci设备的描述信息，第二个应当为id
+ */
 static int ath_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 {
 	struct ath_softc *sc;
@@ -882,9 +888,20 @@ static int ath_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 	int ret = 0;
 	char hw_name[64];
 
+    /*
+     * Woody Huang, 2016.11.2
+     *
+     * 启用pci设备，这个函数应该来自pci驱动
+     */
 	if (pcim_enable_device(pdev))
 		return -EIO;
 
+    /*
+     * Woody Huang, 2016.11.2
+     *
+     * DMA: Direct Memory Access: 是一种无需CPU的参与就可以让外设与系统内存之间进行双向数据传输的硬件机制，使用DMA可以使系统CPU从
+     * 实际的I/O数据传输过程中摆脱出来，从而大大提高系统的吞吐率，DMA经常与硬件体系结构，特别是外设的总线技术密切相关。
+     */
 	ret =  pci_set_dma_mask(pdev, DMA_BIT_MASK(32));
 	if (ret) {
 		pr_err("32-bit DMA not available\n");
@@ -936,22 +953,33 @@ static int ath_pci_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 		return -ENODEV;
 	}
 
+    // 上面都是PCI的初始化，下面应该是ath9k了
+
 	ath9k_fill_chanctx_ops();
+
+    /*
+     * Woody Huang, 2016.11.2
+     *
+     * 这里的ath9k_ops即为main.c中定义的同mac80211通信的接口
+     */
 	hw = ieee80211_alloc_hw(sizeof(struct ath_softc), &ath9k_ops);
 	if (!hw) {
 		dev_err(&pdev->dev, "No memory for ieee80211_hw\n");
 		return -ENOMEM;
 	}
 
+    // 这里是吧hw->wiphy->dev.parent设置为&pdev->dev
 	SET_IEEE80211_DEV(hw, &pdev->dev);
 	pci_set_drvdata(pdev, hw);
 
 	sc = hw->priv;
 	sc->hw = hw;
+    // ？？？？
 	sc->dev = &pdev->dev;
 	sc->mem = pcim_iomap_table(pdev)[0];
 	sc->driver_data = id->driver_data;
 
+    // http://blog.csdn.net/wealoong/article/details/7566546
 	ret = request_irq(pdev->irq, ath_isr, IRQF_SHARED, "ath9k", sc);
 	if (ret) {
 		dev_err(&pdev->dev, "request_irq failed\n");

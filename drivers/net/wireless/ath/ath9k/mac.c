@@ -18,6 +18,9 @@
 #include "hw-ops.h"
 #include <linux/export.h>
 
+/*
+ * 发送队列中断？ -- Woody Huang, 2016.11.2
+ */
 static void ath9k_hw_set_txq_interrupts(struct ath_hw *ah,
 					struct ath9k_tx_queue_info *qi)
 {

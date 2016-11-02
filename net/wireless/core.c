@@ -355,6 +355,7 @@ struct wiphy *wiphy_new_nm(const struct cfg80211_ops *ops, int sizeof_priv,
 	BUILD_BUG_ON(WIPHY_COMPAT_PAD_SIZE <
 		     sizeof(struct wiphy) - WIPHY_COMPAT_PAD_SIZE);
 
+	// 接口实现情况检查
 	WARN_ON(ops->add_key && (!ops->del_key || !ops->set_default_key));
 	WARN_ON(ops->auth && (!ops->assoc || !ops->deauth || !ops->disassoc));
 	WARN_ON(ops->connect && !ops->disconnect);
@@ -364,6 +365,7 @@ struct wiphy *wiphy_new_nm(const struct cfg80211_ops *ops, int sizeof_priv,
 	WARN_ON(ops->add_mpath && !ops->del_mpath);
 	WARN_ON(ops->join_mesh && !ops->leave_mesh);
 
+    // 实际需要分配的内存再次增加了，除了本身
 	alloc_size = sizeof(*rdev) + sizeof_priv;
 
 	rdev = kzalloc(alloc_size, GFP_KERNEL);
@@ -372,6 +374,10 @@ struct wiphy *wiphy_new_nm(const struct cfg80211_ops *ops, int sizeof_priv,
 
 	rdev->ops = ops;
 
+    /*
+     * 猜测，这里的wiphy_idx应该与将来的原子操作有关，这里我们将wiphy_counter增加1，如果得到的结果小于零（不是小于等于有点奇怪），则
+     * 此块内存有其他程序在使用，故创建失败
+     */
 	rdev->wiphy_idx = atomic_inc_return(&wiphy_counter);
 
 	if (unlikely(rdev->wiphy_idx < 0)) {
@@ -384,6 +390,7 @@ struct wiphy *wiphy_new_nm(const struct cfg80211_ops *ops, int sizeof_priv,
 	/* atomic_inc_return makes it start at 1, make it start at 0 */
 	rdev->wiphy_idx--;
 
+    // 我们关注的初始化流程这里request_name为空，即使用默认名称
 	/* give it a proper name */
 	if (requested_name && requested_name[0]) {
 		int rv;
@@ -420,8 +427,11 @@ use_default_name:
 	INIT_WORK(&rdev->sched_scan_results_wk, __cfg80211_sched_scan_results);
 	INIT_DELAYED_WORK(&rdev->dfs_update_channels_wk,
 			  cfg80211_dfs_channels_update_work);
+    // 没有传参数进去
 	device_initialize(&rdev->wiphy.dev);
+    // 这里的class不是c++的类的那个class，而是一个结构体
 	rdev->wiphy.dev.class = &ieee80211_class;
+    // 又反向指回来？
 	rdev->wiphy.dev.platform_data = rdev;
 
 	INIT_LIST_HEAD(&rdev->destroy_list);

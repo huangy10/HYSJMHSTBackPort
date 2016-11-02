@@ -1050,6 +1050,11 @@ static int __init ath9k_init(void)
  err_out:
 	return error;
 }
+/*
+ * Woody Huang, 2016.11.2
+ *
+ * 至此已经到了模块加载部分，具体要弄懂这些的话太过复杂
+ */
 module_init(ath9k_init);
 
 static void __exit ath9k_exit(void)
