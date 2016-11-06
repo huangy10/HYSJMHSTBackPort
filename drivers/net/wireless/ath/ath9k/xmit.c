@@ -1410,7 +1410,7 @@ static void ath_tx_fill_desc(struct ath_softc *sc, struct ath_buf *bf,
 
 		if (bf == bf_first->bf_lastbf)
 			bf_first = NULL;
-
+        // 关注这里http://nearhop.blogspot.in/2013/09/dmaing-is-one-of-most-important-parts.html
 		ath9k_hw_set_txdesc(ah, bf->bf_desc, &info);
 		bf = bf->bf_next;
 	}
@@ -2076,6 +2076,8 @@ static void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 
 	if (puttxbuf) {
 		TX_STAT_INC(txq->axq_qnum, puttxbuf);
+        // Give the descriptor to the correspoding queue -- Woody Huang
+        // axq_qnum为硬件队列编号
 		ath9k_hw_puttxbuf(ah, txq->axq_qnum, bf->bf_daddr);
 		ath_dbg(common, XMIT, "TXDP[%u] = %llx (%p)\n",
 			txq->axq_qnum, ito64(bf->bf_daddr), bf->bf_desc);
@@ -2083,6 +2085,12 @@ static void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 
 	if (!edma || sc->tx99_state) {
 		TX_STAT_INC(txq->axq_qnum, txstart);
+        /*
+         * Woody Huang, 2016.11.5
+         *
+         * Interesting, are we closed to the final?
+         * 这里面只有一个写寄存器的操作
+         */
 		ath9k_hw_txstart(ah, txq->axq_qnum);
 	}
 
@@ -2099,6 +2107,11 @@ static void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 	}
 }
 
+/*
+ * Woody Hunag, 2016.11.5
+ *
+ * 发送主流程中的一步
+ */
 static void ath_tx_send_normal(struct ath_softc *sc, struct ath_txq *txq,
 			       struct ath_atx_tid *tid, struct sk_buff *skb)
 {
@@ -2117,7 +2130,9 @@ static void ath_tx_send_normal(struct ath_softc *sc, struct ath_txq *txq,
 
 	bf->bf_next = NULL;
 	bf->bf_lastbf = bf;
+    // descriptor？
 	ath_tx_fill_desc(sc, bf, txq, fi->framelen);
+    // 把descriptor 传给 hardware
 	ath_tx_txqaddbuf(sc, txq, &bf_head, false);
 	TX_STAT_INC(txq->axq_qnum, queued);
 }
@@ -2223,6 +2238,7 @@ static struct ath_buf *ath_tx_setup_buffer(struct ath_softc *sc,
 	if (tid && ieee80211_is_data_present(hdr->frame_control)) {
 		fragno = le16_to_cpu(hdr->seq_ctrl) & IEEE80211_SCTL_FRAG;
 		seqno = tid->seq_next;
+        // 这里从tid中读取seq control的信息，可以一窥tid的作用
 		hdr->seq_ctrl = cpu_to_le16(tid->seq_next << IEEE80211_SEQ_SEQ_SHIFT);
 
 		if (fragno)
@@ -2236,6 +2252,7 @@ static struct ath_buf *ath_tx_setup_buffer(struct ath_softc *sc,
 
 	bf->bf_mpdu = skb;
 
+    // 对skb进行dma map，注意dma是进行io的方式，猜测这里可能就开始讲数据发给物理层了, DMA的地址存储在buf中
 	bf->bf_buf_addr = dma_map_single(sc->dev, skb->data,
 					 skb->len, DMA_TO_DEVICE);
 	if (unlikely(dma_mapping_error(sc->dev, bf->bf_buf_addr))) {
@@ -2772,6 +2789,11 @@ static void ath_tx_processq(struct ath_softc *sc, struct ath_txq *txq)
 	ath_txq_unlock_complete(sc, txq);
 }
 
+/*
+ * Woody Hunag: 2016.11.5
+ *
+ * 从ath_tx_complete一路追到这里
+ */
 void ath_tx_tasklet(struct ath_softc *sc)
 {
 	struct ath_hw *ah = sc->sc_ah;
@@ -2898,6 +2920,11 @@ static int ath_tx_edma_init(struct ath_softc *sc)
 	return err;
 }
 
+/*
+ * Woody Huang, 2016.11.5
+ *
+ * 设置TX的DMA
+ */
 int ath_tx_init(struct ath_softc *sc, int nbufs)
 {
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);

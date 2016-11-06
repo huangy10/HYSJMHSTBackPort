@@ -224,6 +224,10 @@ struct ath_buf_state {
 	unsigned long bfs_paprd_timestamp;
 };
 
+/*
+ * 这个结构是skb和descriptor之间的中间层，其掌握了descriptor的virtual and physical address
+ * 以及physical address of skb (the frame)，
+ */
 struct ath_buf {
 	struct list_head list;
 	struct ath_buf *bf_lastbf;	/* last buf of this unit (a frame or

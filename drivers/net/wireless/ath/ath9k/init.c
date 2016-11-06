@@ -928,6 +928,11 @@ int ath9k_init_device(u16 devid, struct ath_softc *sc,
 
 	reg = &common->regulatory;
 
+	/*
+	 * Woody Huang, 2016.11.5
+	 *
+	 * DMA是指Direct Memory Access，是内存和I/O连接的渠道
+	 */
 	/* Setup TX DMA */
 	error = ath_tx_init(sc, ATH_TXBUF);
 	if (error != 0)

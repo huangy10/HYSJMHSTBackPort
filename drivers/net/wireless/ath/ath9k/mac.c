@@ -80,6 +80,11 @@ u32 ath9k_hw_numtxpending(struct ath_hw *ah, u32 q)
 }
 EXPORT_SYMBOL(ath9k_hw_numtxpending);
 
+/*
+ * Woody Huang, 2016.11.5
+ *
+ * 发送相关，可能是直接触发发送行为的入口
+ */
 /**
  * ath9k_hw_updatetxtriglevel - adjusts the frame trigger level
  *

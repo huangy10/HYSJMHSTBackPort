@@ -366,6 +366,9 @@ static void ath_node_detach(struct ath_softc *sc, struct ieee80211_sta *sta)
 	ath_dynack_node_deinit(sc->sc_ah, an);
 }
 
+/*
+ * tasklet是一种软中断，用于实时性不那么高的时间
+ */
 void ath9k_tasklet(unsigned long data)
 {
 	struct ath_softc *sc = (struct ath_softc *)data;
@@ -567,6 +570,9 @@ irqreturn_t ath_isr(int irq, void *dev)
 		tasklet_schedule(&sc->bcon_tasklet);
 
 	if (status & ATH9K_INT_TXURN)
+        /*
+         * 这个中断与发送密切相关，发送的trigger应该从这里来
+         */
 		ath9k_hw_updatetxtriglevel(ah, true);
 
 	if (status & ATH9K_INT_RXEOL) {
