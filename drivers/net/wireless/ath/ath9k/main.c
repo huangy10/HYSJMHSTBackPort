@@ -698,6 +698,7 @@ static int ath9k_start(struct ieee80211_hw *hw)
 		ah->reset_power_on = false;
 	}
 
+	// 中断
 	/* Setup our intr mask. */
 	ah->imask = ATH9K_INT_TX | ATH9K_INT_RXEOL |
 		    ATH9K_INT_RXORN | ATH9K_INT_FATAL |

@@ -195,6 +195,11 @@ static void ath_rx_edma_init_queue(struct ath_rx_edma *rx_edma, int size)
 	rx_edma->rx_fifo_hwsize = size;
 }
 
+/*
+ * Woody Huang, 2016.11.7
+ *
+ * 注意这里只是分配了内存，并建立了DMA的mapping, 并没有将descriptor发送给硬件
+ */
 static int ath_rx_edma_init(struct ath_softc *sc, int nbufs)
 {
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
@@ -268,6 +273,11 @@ static void ath_edma_stop_recv(struct ath_softc *sc)
 	ath_rx_remove_buffer(sc, ATH9K_RX_QUEUE_LP);
 }
 
+/*
+ * Woody Huang, 2016.11.7
+ *
+ * 配置rx的DMA
+ */
 int ath_rx_init(struct ath_softc *sc, int nbufs)
 {
 	struct ath_common *common = ath9k_hw_common(sc->sc_ah);
@@ -281,6 +291,7 @@ int ath_rx_init(struct ath_softc *sc, int nbufs)
 			     sc->sc_ah->caps.rx_status_len;
 
 	if (sc->sc_ah->caps.hw_caps & ATH9K_HW_CAP_EDMA)
+		// 我们的板子支持edma
 		return ath_rx_edma_init(sc, nbufs);
 
 	ath_dbg(common, CONFIG, "cachelsz %u rxbufsize %u\n",
@@ -989,6 +1000,20 @@ static void ath9k_apply_ampdu_details(struct ath_softc *sc,
 	}
 }
 
+/*
+ * Woody Huang, 2016.11.7
+ *
+ * 接收到一个包以后进入这个tasklet
+ *
+ * When a frame is received, hardware populates the next available descriptor and raises an interrupt. Driver
+ * handles the interrupt and actual processing of the frame is done in a tasklet.
+ *
+ * http://nearhop.blogspot.in/2013/10/network-driver-rx-descriptors-ath9k-as.html
+ * The driver extracts the frame, DMA-unmap it, processes it and sends it to the top layers.
+ *
+ * Note: Once the frame is sent to the top layer, it also has to allocate a new frame buffer, dma-map it adn pass to
+ * the hardware.
+ */
 int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 {
 	struct ath_rxbuf *bf;
@@ -1140,6 +1165,7 @@ int ath_rx_tasklet(struct ath_softc *sc, int flush, bool hp)
 		if (ieee80211_is_ack(hdr->frame_control))
 			ath_dynack_sample_ack_ts(sc->sc_ah, skb, rs.rs_tstamp);
 
+        // 提交给了upper mac
 		ieee80211_rx(hw, skb);
 
 requeue_drop_frag:

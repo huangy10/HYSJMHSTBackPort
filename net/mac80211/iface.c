@@ -483,6 +483,10 @@ void ieee80211_del_virtual_monitor(struct ieee80211_local *local)
 }
 
 /*
+ * Woody Huang, 2016.11.7
+ *
+ * 这个函数enables the reception of packets
+ *
  * NOTE: Be very careful when changing this function, it must NOT return
  * an error on interface type changes that have been pre-checked, so most
  * checks should be in ieee80211_check_concurrent_iface.
