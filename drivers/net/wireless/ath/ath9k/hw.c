@@ -2519,6 +2519,14 @@ int ath9k_hw_fill_cap_info(struct ath_hw *ah)
 		pCap->hw_caps |= ATH9K_HW_CAP_4KB_SPLITTRANS;
 
 	if (AR_SREV_9300_20_OR_LATER(ah)) {
+		/*
+		 * Woody Huang, 2016.11.6
+		 *
+		 * ah的cap只在这里设置，看来我们的AR9342芯片应当是走了这个分支，
+		 * 即EDMA功能是有的
+		 *
+		 *
+		 */
 		pCap->hw_caps |= ATH9K_HW_CAP_EDMA | ATH9K_HW_CAP_FASTCLOCK;
 		if (!AR_SREV_9330(ah) && !AR_SREV_9485(ah) &&
 		    !AR_SREV_9561(ah) && !AR_SREV_9565(ah))

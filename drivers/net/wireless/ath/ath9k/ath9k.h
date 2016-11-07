@@ -1038,7 +1038,7 @@ struct ath_softc {
 
 	struct ieee80211_vif *tx99_vif;
 	struct sk_buff *tx99_skb;
-	bool tx99_state;
+	bool tx99_state;    // 发送的最后一步的检查了这个属性，不懂是什么意思
 	s16 tx99_power;
 
 #ifdef CPTCFG_ATH9K_WOW

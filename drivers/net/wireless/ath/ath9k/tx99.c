@@ -16,6 +16,13 @@
 
 #include "ath9k.h"
 
+
+/*
+ * Woody Huang, 2016.11.6
+ * http://lists.infradead.org/pipermail/ath10k/2015-March/004781.html
+ * tx99好像是一个一种测试手段，那么在正常的情况下应该不会走tx99_state = true这个路径
+ */
+
 static void ath9k_tx99_stop(struct ath_softc *sc)
 {
 	struct ath_hw *ah = sc->sc_ah;

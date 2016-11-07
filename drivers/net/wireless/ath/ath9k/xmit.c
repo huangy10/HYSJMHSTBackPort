@@ -2050,6 +2050,7 @@ static void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 		return;
 
 	edma = !!(ah->caps.hw_caps & ATH9K_HW_CAP_EDMA);
+    // 取出buf
 	bf = list_first_entry(head, struct ath_buf, list);
 	bf_last = list_entry(head->prev, struct ath_buf, list);
 
@@ -2084,6 +2085,7 @@ static void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 	}
 
 	if (!edma || sc->tx99_state) {
+        // debug信息，txstart: number of times the hardware was told to tx
 		TX_STAT_INC(txq->axq_qnum, txstart);
         /*
          * Woody Huang, 2016.11.5
@@ -2094,6 +2096,7 @@ static void ath_tx_txqaddbuf(struct ath_softc *sc, struct ath_txq *txq,
 		ath9k_hw_txstart(ah, txq->axq_qnum);
 	}
 
+	// send normal 函数中给的internal为false
 	if (!internal) {
 		while (bf) {
 			txq->axq_depth++;
@@ -2121,6 +2124,7 @@ static void ath_tx_send_normal(struct ath_softc *sc, struct ath_txq *txq,
 	struct ath_buf *bf = fi->bf;
 
 	INIT_LIST_HEAD(&bf_head);
+    // 将bf->list加入bf_head的尾部
 	list_add_tail(&bf->list, &bf_head);
 	bf->bf_state.bf_type = 0;
 	if (tid && (tx_info->flags & IEEE80211_TX_CTL_AMPDU)) {
@@ -2133,6 +2137,7 @@ static void ath_tx_send_normal(struct ath_softc *sc, struct ath_txq *txq,
     // descriptor？
 	ath_tx_fill_desc(sc, bf, txq, fi->framelen);
     // 把descriptor 传给 hardware
+    // bf_head里面只有一个buf
 	ath_tx_txqaddbuf(sc, txq, &bf_head, false);
 	TX_STAT_INC(txq->axq_qnum, queued);
 }
