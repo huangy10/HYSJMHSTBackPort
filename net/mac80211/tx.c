@@ -1165,7 +1165,7 @@ ieee80211_tx_prepare(struct ieee80211_sub_if_data *sdata,
 	 * now.
 	 *
 	 * IEEE80211_TX_INTFL_NEED_TXPROCESSING的注释内容是：completely internal to mac80211, used to indicate that a pending
-	 * frme requires TX processing before it can be sent out
+	 * frame requires TX processing before it can be sent out
 	 *
 	 * 那么这里取消了这个置位，也就是说表明这个数据包已经可以发送了
 	 */
@@ -1173,6 +1173,7 @@ ieee80211_tx_prepare(struct ieee80211_sub_if_data *sdata,
 
 	hdr = (struct ieee80211_hdr *) skb->data;
 
+    // 下面这一堆是关于sta的
 	if (likely(sta)) {
         // sta已知
 		if (!IS_ERR(sta))
@@ -1311,6 +1312,7 @@ struct sk_buff *ieee80211_tx_dequeue(struct ieee80211_hw *hw,
     if (!skb)
         goto out;
 
+    // 看起来ac是的队列的一个编号
     atomic_dec(&sdata->txqs_len[ac]);
     if (__netif_subqueue_stopped(sdata->dev, ac))
         ieee80211_propagate_queue_wake(local, sdata->vif.hw_queue[ac]);
@@ -1572,6 +1574,7 @@ EXPORT_SYMBOL(ieee80211_tx_prepare_skb);
  * Woody Huang, 2016.10.23
  *
  * 从ieee80211_xmit最后调用，执行发送？
+ * 返回值并未使用
  */
 static bool ieee80211_tx(struct ieee80211_sub_if_data *sdata,
              struct sta_info *sta, struct sk_buff *skb,
