@@ -59,6 +59,18 @@ void TDMA_send_triggered(struct TDMA *tdma){
 	}
 }
 
+/*
+ * Created by Woody Huang, 2016.11.15
+ *
+ * 获取发送速率，这里的原理如下：
+ *
+ * 由于我们禁用了发送速率控制功能，即所有的包都会以一个恒定的速率进行发送，那么直接取出就可以了。
+ */
+struct ieee80211_tx_rate* TDMA_get_tx_rate(struct sk_buff *skb) {
+	struct ieee80211_tx_info *info = IEEE80211_SKB_CB(skb);
+	return info->control.rates[0];
+}
+
 void fractel_TDMA_TDMA_add_to_buffer(struct TDMA_packet pkt, struct TDMA* tdma){
 	//accquire spin-lock on TDMA queue data-structure
 	if (tdma->head == NULL){

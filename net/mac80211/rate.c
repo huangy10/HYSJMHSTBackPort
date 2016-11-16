@@ -628,6 +628,11 @@ static void rate_control_apply_mask(struct ieee80211_sub_if_data *sdata,
 	}
 }
 
+/*
+ * Woody Huang, 2016.11.15
+ *
+ * 这个应该就是计算发送速率的地方
+ */
 void ieee80211_get_tx_rates(struct ieee80211_vif *vif,
 			    struct ieee80211_sta *sta,
 			    struct sk_buff *skb,

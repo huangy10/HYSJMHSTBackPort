@@ -515,6 +515,7 @@ ieee80211_tx_h_unicast_ps_buf(struct ieee80211_tx_data *tx)
 		}
 
 		if (skb_queue_len(&sta->ps_tx_buf[ac]) >= STA_MAX_TX_BUFFER) {
+            // 如下面的描述显示，这里是取出队列里面的内容
 			struct sk_buff *old = skb_dequeue(&sta->ps_tx_buf[ac]);
 			ps_dbg(tx->sdata,
 			       "STA %pM TX buffer for AC %d full - dropping oldest frame\n",
@@ -527,6 +528,7 @@ ieee80211_tx_h_unicast_ps_buf(struct ieee80211_tx_data *tx)
 		info->control.vif = &tx->sdata->vif;
 		info->flags |= IEEE80211_TX_INTFL_NEED_TXPROCESSING;
 		info->flags &= ~IEEE80211_TX_TEMPORARY_FLAGS;
+        // 这里是加入队列的操作，可以见到队列是按照sta分成多个的
 		skb_queue_tail(&sta->ps_tx_buf[ac], tx->skb);
 		spin_unlock(&sta->ps_lock);
 
@@ -541,6 +543,11 @@ ieee80211_tx_h_unicast_ps_buf(struct ieee80211_tx_data *tx)
 		 */
 		sta_info_recalc_tim(sta);
 
+		/*
+		 * Woody Huang, 2016.11.16
+		 *
+		 * 貌似这里是唯二的产生TX_QUEUED的地方
+		 */
 		return TX_QUEUED;
 	} else if (unlikely(test_sta_flag(sta, WLAN_STA_PS_STA))) {
 		ps_dbg(tx->sdata,
@@ -1139,7 +1146,6 @@ static bool ieee80211_tx_prep_agg(struct ieee80211_tx_data *tx,
  * pass %NULL for the station if unknown, a valid pointer if known
  * or an ERR_PTR() if the station is known not to exist
  *
- * 上溯至start_xmit，传进来的sta是NULL
  */
 static ieee80211_tx_result
 ieee80211_tx_prepare(struct ieee80211_sub_if_data *sdata,
@@ -1530,6 +1536,9 @@ static int invoke_tx_handlers(struct ieee80211_tx_data *tx)
     return 0;
 }
 
+/*
+ * 这个函数只在驱动里面调用
+ */
 bool ieee80211_tx_prepare_skb(struct ieee80211_hw *hw,
                   struct ieee80211_vif *vif, struct sk_buff *skb,
                   int band, struct ieee80211_sta **sta)
@@ -3196,6 +3205,10 @@ static bool ieee80211_tx_pending_skb(struct ieee80211_local *local,
 }
 
 /*
+ * Woody Huang, 2016.11.16
+ * 通过英文提示可以看出这里是发送处于pending状态的skb，调用方式为tasklet
+ * 这个tasklet为local->tx_pending_tasklet，这个tasklet唯一的调用之处位于net/mac80211/util.c
+ * 中的__ieee80211_wake_queue
  * Transmit all pending packets. Called from tasklet.
  */
 void ieee80211_tx_pending(unsigned long data)

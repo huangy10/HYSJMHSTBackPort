@@ -231,6 +231,13 @@ static void ieee80211_tasklet_handler(unsigned long data)
 			break;
 		case IEEE80211_TX_STATUS_MSG:
 			skb->pkt_type = 0;
+			/*
+			 * 这个函数ieee80211_tx_status的注释为transmit status callback,
+			 *
+			 * Call this function for all transmitted frames after they have been transmitted.
+			 * It is permissible to not call this function for multicast frames but this can affect
+			 * statistics.
+			 */
 			ieee80211_tx_status(&local->hw, skb);
 			break;
 		default:
@@ -797,6 +804,14 @@ struct ieee80211_hw *ieee80211_alloc_hw_nm(size_t priv_data_len,
 	tasklet_init(&local->tx_pending_tasklet, ieee80211_tx_pending,
 				 (unsigned long)local);
 
+    /*
+     * Woody Huang, 2016.11.16
+     *
+     * http://blog.csdn.net/fontlose/article/details/8279113
+     * tasklet是中断处理下半部分的一种常见的处理方法，简而言之，可以理解为一个串行任务队列，tasklet只可以在一个CPU上同步地执行
+     *
+     * 这里定义了的任务，通过tasklet_schedule来实现调用
+     */
 	tasklet_init(&local->tasklet,
 				 ieee80211_tasklet_handler,
 				 (unsigned long) local);
