@@ -36,12 +36,9 @@
 //}
 //
 
-struct TDMA_packet {
 
-};
-struct TDMA{
-	struct TDMA_packet *head;
-	struct TDMA_packet *tail;
+struct tdma_queue {
+    skb_buff_head skbs;
 };
 
 void TDMA_send_triggered(struct TDMA *tdma){
