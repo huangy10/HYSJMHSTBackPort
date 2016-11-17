@@ -1406,7 +1406,7 @@ static bool ieee80211_tx_frags(struct ieee80211_local *local,
         spin_unlock_irqrestore(&local->queue_stop_reason_lock, flags);
 
         info->control.vif = vif;
-
+        // 把skb从skbs中移除
         __skb_unlink(skb, skbs);
         ieee80211_drv_tx(local, vif, sta, skb);
     }

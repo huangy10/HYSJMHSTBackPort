@@ -39,7 +39,17 @@
 
 struct tdma_queue {
     skb_buff_head skbs;
+
+    // 考虑中，是否要给每个sta或者vif一个队列？
+    struct ieee80211_vif *vif;
+    struct ieee80211_sta *sta;
+
+    u8 ac;
 };
+
+void tdma_enqueue(struct tdma_queue *txq, struct sk_buff *skb) {
+
+}
 
 void TDMA_send_triggered(struct TDMA *tdma){
 	//calculate current transmission rate
