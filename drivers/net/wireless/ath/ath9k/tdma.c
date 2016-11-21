@@ -38,16 +38,81 @@
 
 
 struct tdma_queue {
-    skb_buff_head skbs;
+    sk_buff_head skbs;
 
     // 考虑中，是否要给每个sta或者vif一个队列？
     struct ieee80211_vif *vif;
     struct ieee80211_sta *sta;
 
     u8 ac;
+    u8 len = 0;
+    u8 capacity = 0;
+
+    // 给队列定义了一个自旋锁，那么当不同线程在访问队列的时候可以保证安全。
+    // 当访问队列之前，应当用spin_lock来上锁
+    spinlock_t lock;
+
+    //
+    struct ieee80211_local *local;
 };
 
-void tdma_enqueue(struct tdma_queue *txq, struct sk_buff *skb) {
+void tdma_config_tx_queue(
+        struct ieee80211_local *local,
+        struct ieee80211_vif *vif,
+        struct ieee80211_sta *sta,
+        struct tdma_queue *txq) {
+    // 需要在这里初始化自旋锁
+    spin_lock_init(&(txq->lock));
+
+    // 初始化skb链表的头
+    skb_queue_head_init(&(txq->skbs));
+
+    txq->vif = vif;
+    txq->sta = sta;
+    txq->capacity = 8;
+    txq->len = 0;
+    txq->local = local;
+}
+
+void tdma_queue_tail(struct tdma_queue *txq, struct sk_buff *skb) {
+    struct sk_buff *_skb;
+    struct ieee80211_local *local = txq->local;
+    spin_lock(&(txq->lock));
+    if (txq->len >= txq->capacity && txq->capacity > 0) {
+        _skb = skb_dequeue(&(txq->skbs));
+//        dev_kfree_skb(_skb);
+        ieee80211_free_txskb(&local->hw, _skb);
+    }
+
+    skb_queue_tail(&(txq->skbs), skb);
+
+    spin_unlock(&(txq->lock));
+}
+
+struct sk_buff* tdma_dequeue(struct tdma_queue *txq) {
+    struct sk_buff *skb;
+    spin_lock(&(txq->lock));
+    if (txq->len == 0) {
+        return NULL;
+    }
+    skb = skb_dequeue(&(txq->skbs));
+    spin_unlock(&(txq->lock));
+    return skb;
+}
+
+/*
+ * 设置周期出发的始终
+ * timer_list可能要定义在dev里面
+ */
+void tdma_config_timer(struct timer_list *timer) {
+
+}
+
+void restart_timer(struct timer_list *timer, long delay) {
+    add_timer(timer);
+}
+
+void timer_handler(unsigned long *param) {
 
 }
 
@@ -65,6 +130,7 @@ void TDMA_send_triggered(struct TDMA *tdma){
 			break;
 	}
 }
+
 
 /*
  * Created by Woody Huang, 2016.11.15
