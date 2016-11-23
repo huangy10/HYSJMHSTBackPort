@@ -45,7 +45,7 @@ struct tdma_queue {
     struct ieee80211_sta *sta;
 
     u8 ac;
-    u8 len = 0;
+    atomic_t len = 0;
     u8 capacity = 0;
 
     // 给队列定义了一个自旋锁，那么当不同线程在访问队列的时候可以保证安全。
@@ -70,32 +70,35 @@ void tdma_config_tx_queue(
     txq->vif = vif;
     txq->sta = sta;
     txq->capacity = 8;
-    txq->len = 0;
+	atomic_set(&(txq->len), 0);
     txq->local = local;
 }
 
+// 相当于文章中的fractel_TDMA_add_to_buffer函数
 void tdma_queue_tail(struct tdma_queue *txq, struct sk_buff *skb) {
     struct sk_buff *_skb;
     struct ieee80211_local *local = txq->local;
     spin_lock(&(txq->lock));
-    if (txq->len >= txq->capacity && txq->capacity > 0) {
+    if (atomic_read(&txq->len) >= txq->capacity && txq->capacity > 0) {
         _skb = skb_dequeue(&(txq->skbs));
 //        dev_kfree_skb(_skb);
         ieee80211_free_txskb(&local->hw, _skb);
     }
 
     skb_queue_tail(&(txq->skbs), skb);
-
+    atomic_add(&txq->len)
     spin_unlock(&(txq->lock));
 }
 
+// 相当于文章中的TDMA_remove_from_buffer
 struct sk_buff* tdma_dequeue(struct tdma_queue *txq) {
     struct sk_buff *skb;
     spin_lock(&(txq->lock));
-    if (txq->len == 0) {
+    if (atomic_read(&txq->len) == 0) {
         return NULL;
     }
     skb = skb_dequeue(&(txq->skbs));
+    atomic_sub(&txq->len);
     spin_unlock(&(txq->lock));
     return skb;
 }
@@ -109,6 +112,7 @@ void tdma_config_timer(struct timer_list *timer) {
 }
 
 void restart_timer(struct timer_list *timer, long delay) {
+    // 重新设置timer的expire值
     add_timer(timer);
 }
 
@@ -116,18 +120,34 @@ void timer_handler(unsigned long *param) {
 
 }
 
-void TDMA_send_triggered(struct TDMA *tdma){
-	//calculate current transmission rate
+// 相当于文章中的TDMA_get_packet_params函数
+void tdma_get_packet_params(struct tdma_queue *txq, int *len) {
+    *len = (int)atomic_read(txq->len);
+}
 
-	while (TDMA_get_packet_params(head)){
+void TDMA_send_triggered(struct tdma_queue *txq, struct net_device *dev){
+	//calculate current transmission rate
+    int len = 0;
+    struct sk_buff *skb;
+    struct sta_info *sta;
+    struct ieee80211_sub_if_data *sdata = IEEE80211_DEV_TO_SUB_IF(dev);
+    struct ieee80211_local *local = txq->local;
+
+	while (tdma_get_packet_params(&len)){
 		//calculate time required to send this packet
 
 		if (packet_transmit_time < slot_interval){
-			TDMA_remove_from_buffer(tdma->head);
-			ath_tx_hardstart();
+//			TDMA_remove_from_buffer(tdma->head);
+            skb = tdma_dequeue(txq);
+            if (ieee80211_lookup_ra_sta(sdata, skb, &sta)) {
+                ieee80211_free_txskb(skb);
+                continue;
+            }
+            ieee80211_subif_start_xmit(skb, dev);
 		}
-		else
-			break;
+		else {
+            break;
+        }
 	}
 }
 
@@ -156,15 +176,6 @@ void fractel_TDMA_TDMA_add_to_buffer(struct TDMA_packet pkt, struct TDMA* tdma){
 		tdma->tail = new_packet;
 	}
 	//release spin-lock
-}
-
-void TDMA_get_packet_params(struct TDMA *tdma){
-	if (tdma->head == NULL)
-		return 0;
-	else{
-		//write length of the packet pointed by TDMA->head into the address passed as argument
-		return 1;
-	}
 }
 
 void TDMA_remove_from_buffer(struct TDMA *tdma){
@@ -206,6 +217,7 @@ void fractel_event_handler(int expected_next_slot_time, int slot_number, struct 
 }
 
 
+// 从输入参数的形式来看，类似于ieee80211_subif_start_xmit函数
 static int
 ath_hardstart(struct sk_buff *skb, struct net_device *dev)
 {
@@ -639,4 +651,8 @@ ath_tx_startraw(struct net_device *dev, struct ath_buf *bf, struct sk_buff *skb)
 	return 0;
 }
 
+
+void rx_poll() {
+
+}
 

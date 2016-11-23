@@ -3368,6 +3368,9 @@ static bool ieee80211_prepare_and_rx_handle(struct ieee80211_rx_data *rx,
 
 	rx->skb = skb;
 
+	/*
+	 * 这里是判断是否要接受这个帧的地方
+	 */
 	if (!ieee80211_accept_frame(rx))
 		return false;
 
