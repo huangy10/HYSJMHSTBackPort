@@ -2479,6 +2479,7 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
     hdr.duration_id = 0;
     hdr.seq_ctrl = 0;
 
+    // 根据名字可以认为ETH_HLEN应当是802.3以太王header的长度
     skip_header_bytes = ETH_HLEN;
     if (ethertype == ETH_P_AARP || ethertype == ETH_P_IPX) {
         encaps_data = bridge_tunnel_header;
@@ -2495,11 +2496,14 @@ static struct sk_buff *ieee80211_build_hdr(struct ieee80211_sub_if_data *sdata,
 
     nh_pos = skb_network_header(skb) - skb->data;
     h_pos = skb_transport_header(skb) - skb->data;
-
+    // 看来应该是移除原来的Ehther header
     skb_pull(skb, skip_header_bytes);
+
+    // 重新计算nh和h相对于skb->data的相对位置
     nh_pos -= skip_header_bytes;
     h_pos -= skip_header_bytes;
 
+    //
     head_need = hdrlen + encaps_len + meshhdrlen - skb_headroom(skb);
 
     /*

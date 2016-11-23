@@ -957,6 +957,8 @@ void ath_ant_comb_scan(struct ath_softc *sc, struct ath_rx_status *rs);
 
 #define ATH9K_NUM_CHANCTX  2 /* supports 2 operating channels */
 
+// 也许我们需要在这里面加入tdma的状态机
+
 struct ath_softc {
 	struct ieee80211_hw *hw;
 	struct device *dev;

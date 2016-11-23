@@ -21,46 +21,16 @@
 #include <net/mac80211.h>
 #include <asm/unaligned.h>
 
+// TODO: maintain a sta table
 
-//struct tdma_txq {
-//    list_head head;
-//};
-//
-//static void tdma_config() {
-//
-//}
-//
-//
-//void tdma_xmit(struct ieee80211_sub_if_data *sdata, struct sta_info *sta, struct sk_buff *skb) {
-//
-//}
-//
-
-
-struct tdma_queue {
-    sk_buff_head skbs;
-
-    // 考虑中，是否要给每个sta或者vif一个队列？
-    struct ieee80211_vif *vif;
-    struct ieee80211_sta *sta;
-
-    u8 ac;
-    atomic_t len = 0;
-    u8 capacity = 0;
-
-    // 给队列定义了一个自旋锁，那么当不同线程在访问队列的时候可以保证安全。
-    // 当访问队列之前，应当用spin_lock来上锁
-    spinlock_t lock;
-
-    //
-    struct ieee80211_local *local;
-};
+// TODO: TDMA status machine
 
 void tdma_config_tx_queue(
         struct ieee80211_local *local,
         struct ieee80211_vif *vif,
         struct ieee80211_sta *sta,
         struct tdma_queue *txq) {
+    struct tdma_hdr x;
     // 需要在这里初始化自旋锁
     spin_lock_init(&(txq->lock));
 
@@ -118,6 +88,75 @@ void restart_timer(struct timer_list *timer, long delay) {
 
 void timer_handler(unsigned long *param) {
 
+}
+
+// header
+
+// 这个函数暂时用来构造数据帧的头
+struct skb_buff* tdma_build_data_hdr(
+        struct ieee80211_subif_data *sdata,
+        struct sk_buff *skb,
+        u32 info_flags,
+        struct sta_info *sta
+) {
+    struct tdma_hdr hdr;
+    struct ieee80211_hdr *old_hdr = (struct ieee80211_hdr*)skb->data;
+    struct ieee80211_local *local = sdata->local;
+    int headroom;
+    __le16 fc = old_hdr->frame_control;
+    int nh_pos, h_pos;
+
+    u16 hdrlen, old_hdrlen = 0;
+    u16 ethertype = 0;
+    if (IS_ERR(sta)) {
+        sta = NULL;
+    }
+
+    // 把标准的tdma
+    hdr.fractel_frame &= 0xff;
+    hdr.packet_type &= TDMA_H_DATA;
+    // 这个与NAV有关，我们将其置为0
+    hdr.reserved &= 0x0000;
+    // flow id 用来决定queue的编号，目前没有实现
+    hdr.data_hdr.flow_id = 0;
+    // copy addresses
+    memcpy(hdr.data_hdr.rx, old_hdr->addr1, ETH_ALEN);
+    memcpy(hdr.data_hdr.tx, old_hdr->addr2, ETH_ALEN);
+    memcpy(hdr.data_hdr.end_src, old_hdr->addr3, ETH_ALEN);
+    memcpy(hdr.data_hdr.end_des, old_hdr->addr4, ETH_ALEN);
+
+    hdrlen = 38;
+    // 设置header
+    old_hdrlen = sizeof(ieee80211_hdr);
+
+    if (ieee80211_is_data_qos(fc)) {
+        old_hdrlen -= 2;
+    }
+
+    headroom = hdrlen - old_hdrlen;
+    if (ieee80211_skb_resize(sdata, skb, headroom, false)) {
+        ieee80211_free_txskb(&local->hw, skb);
+        return NULL;
+    }
+
+    // 此处模仿ieee80211_build_hdr的写法，控制这两个header的偏移
+    nh_pos = skb_network_header(skb) - skb->data;
+    h_pos = skb_transport_header(skb) - skb->data;
+
+    skb_pull(skb, old_hdrlen);
+    nh_pos -= old_hdrlen;
+    h_pos -= old_hdrlen;
+
+    memcpy(skb_push(skb, hdrlen), &hdr, hdrlen);
+    nh_pos += hdrlen;
+    h_pos += hdrlen;
+
+    skb_set_mac_header(skb, 0);
+    skb_set_network_header(skb, nh_pos);
+    skb_set_transport_header(skb, h_pos);
+
+    hdr = (struct tdma_hdr*)skb->data;
+    return skb;
 }
 
 // 相当于文章中的TDMA_get_packet_params函数
