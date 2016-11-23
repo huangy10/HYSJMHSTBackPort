@@ -64,3 +64,25 @@ struct tdma_queue {
 
 void tdma_queue_tail(struct tdma_queue *txq, struct sk_buff *skb);
 struct sk_buff* tdma_dequeue(struct tdma_queue *txq);
+
+
+#define TOPOLOGY_CAPACITY 100
+#define NODE_MAX_DEGREE 8
+
+
+// tdma的状态机
+struct tdma_sc {
+    u64 ts_offset;  // 时钟同步偏移
+
+    tdma_queue *txq;    // 暂时定义一个全局队列
+    tdma_queue *txq_h;  // 高优先级队列
+
+    u8 nodes_count;       // 节点的数量
+    u8 topology[TOPOLOGY_CAPACITY];
+    int topo_len;
+    u8 neighors[NODE_MAX_DEGREE];
+
+    timer_list timer;
+
+    net_device* dev;
+};
